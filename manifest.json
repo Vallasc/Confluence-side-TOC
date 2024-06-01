@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Confluence side TOC",
+  "version": "1.0",
+  "description": "Adds a Table of Contents (TOC) on the left side to Atlassian Confluence pages.",
+  "content_scripts": [
+    {
+      "matches": ["https://*.atlassian.net/*"],
+      "js": ["scripts/content.js"]
+    }
+  ]
+}
