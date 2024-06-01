@@ -1,12 +1,29 @@
-// Crea il contenitore del TOC (Table of Contents)
+const headingPaddingTop = 100;
+
+// Create div for TOC (Table of Contents)
 const tocContainer = document.createElement("div");
 tocContainer.id = "toc-container";
+let isMouseOverToc = false;
 
-// Aggiungi stili per la scrollbar e per il link hover
+tocContainer.addEventListener("mouseover", () => {
+  isMouseOverToc = true;
+});
+
+tocContainer.addEventListener("mouseout", () => {
+  isMouseOverToc = false;
+});
+
+let contentElement;
+let headings = [];
+let lastVisibleHeading;
+let scrollTimer;
+let scrollListener;
+
+// Add styles
 const style = document.createElement("style");
 style.textContent = `
   #toc-container {
-    width: 450px;
+    width: min(19vw, 450px);
     position: sticky;
     max-height: calc(100vh - 120px);
     overflow-y: auto;
@@ -51,8 +68,6 @@ style.textContent = `
 
 document.head.appendChild(style);
 
-let headings = [];
-
 const generateId = (heading, idMap) => {
   let baseId = encodeURIComponent(
     heading.textContent.trim().replaceAll(" ", "-")
@@ -67,7 +82,7 @@ const generateId = (heading, idMap) => {
   return id;
 };
 
-// Funzione per creare il TOC
+// Fills TOC container
 const generateTOC = () => {
   let idMap = {};
   headings = contentElement.querySelectorAll("h1, h2, h3, h4, h5, h6");
@@ -82,7 +97,7 @@ const generateTOC = () => {
   tocList.style.paddingLeft = "0";
 
   headings.forEach((heading, index) => {
-    // Crea un elemento della lista per ogni heading
+    // Create an element of the list for each hading
     const listItem = document.createElement("li");
     listItem.style.marginLeft = `${
       (parseInt(heading.tagName.charAt(1)) - 1) * 20
@@ -92,15 +107,15 @@ const generateTOC = () => {
     }
     listItem.style.marginBottom = "8px";
 
-    // Crea un link per ogni heading
+    // Create a link fore ach heading
     const link = document.createElement("a");
     link.href = `#${heading.hId}`;
     link.textContent = heading.textContent;
-    // Applica lo stile specifico per gli h1
+    // Apply a custom style for h1
     if (heading.tagName.toLowerCase() === "h1") {
       link.classList.add("h1");
     } else {
-      // Aggiungi un pallino all'inizio per gli altri heading
+      // Add a dot for other elements
       link.classList.add("hOther");
       const bullet = document.createElement("span");
       bullet.textContent = "•";
@@ -112,14 +127,11 @@ const generateTOC = () => {
     tocList.appendChild(listItem);
   });
 
-  tocContainer.innerHTML = ""; // Cancella il contenuto precedente
+  tocContainer.innerHTML = ""; // Remove old content
   tocContainer.appendChild(tocList);
 };
 
-const headingPaddingTop = 100;
-let lastVisibleHeading;
-
-// Funzione per evidenziare il titolo attualmente visibile
+// Get first visible heading in document
 const getVisibleHeading = () => {
   let firstVisibleHeading = headings[0];
 
@@ -140,12 +152,16 @@ const getVisibleHeading = () => {
   return firstVisibleHeading;
 };
 
+// Highlight link on side menu
 const highlightMenuHeading = (heading) => {
   if (heading) {
     if (lastVisibleHeading) {
-      tocContainer
-        .querySelector(`a[href="#${lastVisibleHeading.hId}"]`)
-        .classList.remove("active");
+      const oldLink = tocContainer.querySelector(
+        `a[href="#${lastVisibleHeading.hId}"]`
+      );
+      if (oldLink) {
+        oldLink.classList.remove("active");
+      }
     }
     lastVisibleHeading = heading;
     const link = tocContainer.querySelector(`a[href="#${heading.hId}"]`);
@@ -155,6 +171,7 @@ const highlightMenuHeading = (heading) => {
   }
 };
 
+// Scrolls on the selected link
 const scrollIntoMenuHeading = (heading) => {
   if (heading) {
     const link = tocContainer.querySelector(`a[href="#${heading.hId}"]`);
@@ -164,7 +181,7 @@ const scrollIntoMenuHeading = (heading) => {
       const containerHeight = tocContainer.clientHeight;
       const linkHeight = link.clientHeight;
 
-      // Controlla se il link attivo è visibile nel contenitore del TOC
+      // Check if link is active and visible in TOC container
       if (
         (linkPosition < containerScrollTop ||
           linkPosition + linkHeight > containerScrollTop + containerHeight) &&
@@ -178,28 +195,18 @@ const scrollIntoMenuHeading = (heading) => {
 };
 
 const highlightVisibleMenuHeading = () => {
-  let timer;
-  window.addEventListener("scroll", () => {
-    if (timer) {
-      window.clearTimeout(timer);
+  const handleOnScroll = () => {
+    if (scrollTimer) {
+      window.clearTimeout(scrollTimer);
     }
-    timer = setTimeout(() => {
+    scrollTimer = setTimeout(() => {
       let visibleHeading = getVisibleHeading();
       highlightMenuHeading(visibleHeading);
       scrollIntoMenuHeading(visibleHeading);
     }, 200);
-  });
+  };
+  window.addEventListener("scroll", handleOnScroll);
 };
-
-let isMouseOverToc = false;
-
-tocContainer.addEventListener("mouseover", () => {
-  isMouseOverToc = true;
-});
-
-tocContainer.addEventListener("mouseout", () => {
-  isMouseOverToc = false;
-});
 
 // Listen to headers changes
 const observer = new MutationObserver((mutations) => {
@@ -231,17 +238,16 @@ const observer = new MutationObserver((mutations) => {
   }
 });
 
-// Trova il tag main e inserisci il TOC come suo fratello
-const mainElement = document.querySelector("main");
-let contentElement = document.querySelector("#content");
-if (!contentElement) {
-  contentElement = mainElement;
-}
-if (mainElement) {
-  mainElement.parentNode.insertBefore(tocContainer, mainElement);
-}
-
 const init = () => {
+  console.log("Loading Side TOC");
+  const mainElement = document.querySelector("main");
+  contentElement = document.querySelector("#content");
+  if (!contentElement) {
+    contentElement = mainElement;
+  }
+  if (mainElement && !document.body.contains(tocContainer)) {
+    mainElement.parentNode.insertBefore(tocContainer, mainElement);
+  }
   observer.disconnect();
   observer.observe(mainElement, {
     childList: true,
@@ -250,20 +256,35 @@ const init = () => {
   });
 
   generateTOC();
-  highlightVisibleMenuHeading();
 };
 
-init();
+const locationChecker = () => {
+  const isPages = location.href.split("/")[6] === 'pages';
+  return location.href.includes("/wiki/spaces/") && isPages;
+};
 
-var oldLocation = location.href;
+if (locationChecker()) {
+  init();
+  highlightVisibleMenuHeading();
+}
+
+let oldLocation = location.href;
+let oldSpace = location.href.split("/")[5];
 setInterval(() => {
-  if (location.href != oldLocation) {
-    oldLocation = location.href;
-    if(location.href.includes('/edit-v2/')) {
-      setTimeout(() => {
-        init();
-      }, 1000);
-    }
-    console.log("address changed");
+  const currentSpace = location.href.split("/")[5];
+  console.log(currentSpace)
+  console.log(oldSpace)
+  if (
+    locationChecker() &&
+    location.href !== oldLocation &&
+    (currentSpace !== oldSpace ||
+      oldLocation.includes("/edit-v2/") !== location.href.includes("/edit-v2/"))
+  ) {
+    console.log("Reload TOC")
+    setTimeout(() => {
+      init();
+    }, 2000);
   }
-}, 1000); // check every second
+  oldLocation = location.href;
+  oldSpace = currentSpace;
+}, 2000); // check every two second
